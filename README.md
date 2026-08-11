@@ -4,6 +4,9 @@
 
 # CircleKey
 
+[![npm](https://img.shields.io/npm/v/circlekey)](https://www.npmjs.com/package/circlekey)
+[![license](https://img.shields.io/npm/l/circlekey)](./LICENSE)
+
 **Reference implementation of [The GroupVault Protocol](https://github.com/groupvault/protocol).**
 
 CircleKey is a TypeScript library providing end-to-end encrypted group
