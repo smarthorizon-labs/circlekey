@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src", "test", "*.config.ts"],
+  // The only two files that touch Node builtins (`node:fs`, `process`):
+  // the vector generator, and the conformance-doc guard that reads the
+  // suite and the audit off disk. Typechecking them would mean adding
+  // @types/node, whose globals would then be available to `src/core/`
+  // — exactly the platform coupling `"types": []` exists to prevent.
+  // They are excluded instead; vitest still runs both.
+  "exclude": ["test/regenerate-vectors.test.ts", "test/conformance-doc.test.ts"]
+}

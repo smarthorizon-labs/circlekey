@@ -1,0 +1,55 @@
+# Publishes to npm via a trusted publisher, so there is no long-lived
+# npm token anywhere in this repository.
+#
+# npm mints a short-lived credential from this workflow's OIDC identity,
+# bound to the repository AND to this file's name. Renaming this file
+# breaks publishing until the package's trusted-publisher settings are
+# updated — it fails closed, which is the behaviour we want.
+#
+# Setup, once, at npmjs.com -> package -> Settings -> Trusted Publisher:
+#   repository: smarthorizon-labs/circlekey
+#   workflow:   publish.yml
+#
+# For a library nobody has independently audited, this is the strongest
+# available answer to "why should I trust the tarball?": provenance is
+# attested automatically, tying the published artifact to a specific
+# public commit and workflow run. A stored token could publish as us
+# forever; this cannot outlive the job.
+
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write   # mints the OIDC credential npm exchanges
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # The runner's bundled npm (10.x on Node 22) predates trusted
+      # publishing; without this the publish step fails to authenticate.
+      - run: npm install -g npm@latest
+      - run: npm --version
+
+      # `npm ci` runs `prepare`, which builds dist/ — the only thing
+      # `files` publishes. The gate runs again here because a release is
+      # the last point at which a mistake is still cheap to stop.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+      # No NODE_AUTH_TOKEN: authentication is the OIDC exchange above,
+      # and provenance is generated automatically for trusted publishers.
+      - run: npm publish

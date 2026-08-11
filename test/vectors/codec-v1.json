@@ -1,0 +1,147 @@
+{
+  "_comment": "CircleKey codec test vectors v1 — FINAL. These freeze the canonical encoding, signing bytes, chain hash, and genesis marker. Any behavioral change is a suite-version bump (new vector file), never a regeneration; a diff here in a PR is a red flag (a non-negotiable invariant).",
+  "canonicalization": [
+    {
+      "name": "key-sorting-utf16-code-units",
+      "input": {
+        "b": 2,
+        "a": 1,
+        "A": 0,
+        "Z": -3
+      },
+      "canonical": "{\"A\":0,\"Z\":-3,\"a\":1,\"b\":2}"
+    },
+    {
+      "name": "numeric-looking-keys-sort-as-strings",
+      "input": {
+        "1": "one",
+        "2": "two",
+        "10": "ten"
+      },
+      "canonical": "{\"1\":\"one\",\"10\":\"ten\",\"2\":\"two\"}"
+    },
+    {
+      "name": "nested-structures",
+      "input": {
+        "z": [
+          {
+            "y": true,
+            "x": null
+          }
+        ],
+        "a": {
+          "b": [
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "canonical": "{\"a\":{\"b\":[1,2,3]},\"z\":[{\"x\":null,\"y\":true}]}"
+    },
+    {
+      "name": "empty-structures",
+      "input": {
+        "arr": [],
+        "obj": {}
+      },
+      "canonical": "{\"arr\":[],\"obj\":{}}"
+    },
+    {
+      "name": "string-escaping",
+      "input": {
+        "control": "\u0007",
+        "quoted": "a\"b\\c\n",
+        "unicode": "héllo ✓ €"
+      },
+      "canonical": "{\"control\":\"\\u0007\",\"quoted\":\"a\\\"b\\\\c\\n\",\"unicode\":\"héllo ✓ €\"}"
+    },
+    {
+      "name": "integer-bounds",
+      "input": {
+        "max": 9007199254740991,
+        "min": -9007199254740991,
+        "zero": 0
+      },
+      "canonical": "{\"max\":9007199254740991,\"min\":-9007199254740991,\"zero\":0}"
+    }
+  ],
+  "genesis_markers": [
+    {
+      "group_id": "circlekey-vector-group-1",
+      "marker": "ctFIthSuijsbDIzM5cRpiv7QScvZxp9j0c6XTY2ZgCw"
+    }
+  ],
+  "transitions": [
+    {
+      "name": "genesis-create",
+      "transition": {
+        "group_id": "circlekey-vector-group-1",
+        "epoch": 0,
+        "prev_transition_hash": "ctFIthSuijsbDIzM5cRpiv7QScvZxp9j0c6XTY2ZgCw",
+        "action": "create",
+        "members": [
+          {
+            "user_id": "alice",
+            "device_pubkeys": [
+              "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE"
+            ],
+            "is_manager": true
+          }
+        ],
+        "secret_envelopes": [
+          {
+            "device_pubkey": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+            "ciphertext": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH"
+          }
+        ],
+        "policy": {
+          "min_managers": 1
+        },
+        "signed_by": "CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo",
+        "signature": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQ"
+      },
+      "signing_string": "{\"action\":\"create\",\"epoch\":0,\"group_id\":\"circlekey-vector-group-1\",\"members\":[{\"device_pubkeys\":[\"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE\"],\"is_manager\":true,\"user_id\":\"alice\"}],\"policy\":{\"min_managers\":1},\"prev_transition_hash\":\"ctFIthSuijsbDIzM5cRpiv7QScvZxp9j0c6XTY2ZgCw\",\"secret_envelopes\":[{\"ciphertext\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH\",\"device_pubkey\":\"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE\"}],\"signed_by\":\"CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo\"}",
+      "hash": "qvM9L_FwdIoITnFjrVYjDhCRK0CLfDubYo7ACzrHLrE"
+    },
+    {
+      "name": "add-member",
+      "transition": {
+        "group_id": "circlekey-vector-group-1",
+        "epoch": 1,
+        "prev_transition_hash": "qvM9L_FwdIoITnFjrVYjDhCRK0CLfDubYo7ACzrHLrE",
+        "action": "add",
+        "members": [
+          {
+            "user_id": "alice",
+            "device_pubkeys": [
+              "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE"
+            ],
+            "is_manager": true
+          },
+          {
+            "user_id": "bob",
+            "device_pubkeys": [
+              "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI"
+            ],
+            "is_manager": false
+          }
+        ],
+        "secret_envelopes": [
+          {
+            "device_pubkey": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+            "ciphertext": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH"
+          },
+          {
+            "device_pubkey": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+            "ciphertext": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH"
+          }
+        ],
+        "signed_by": "CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo",
+        "signature": "CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCw"
+      },
+      "signing_string": "{\"action\":\"add\",\"epoch\":1,\"group_id\":\"circlekey-vector-group-1\",\"members\":[{\"device_pubkeys\":[\"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE\"],\"is_manager\":true,\"user_id\":\"alice\"},{\"device_pubkeys\":[\"AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI\"],\"is_manager\":false,\"user_id\":\"bob\"}],\"prev_transition_hash\":\"qvM9L_FwdIoITnFjrVYjDhCRK0CLfDubYo7ACzrHLrE\",\"secret_envelopes\":[{\"ciphertext\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH\",\"device_pubkey\":\"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE\"},{\"ciphertext\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH\",\"device_pubkey\":\"AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI\"}],\"signed_by\":\"CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo\"}",
+      "hash": "wtluHRz73ruER94kjzS6L0NXvUAcDZTlrhSq04Cp8OQ"
+    }
+  ]
+}
