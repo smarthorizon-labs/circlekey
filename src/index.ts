@@ -30,6 +30,7 @@ export {
   EnvelopeError,
   HistoryIntegrityError,
   KeyUsageExceededError,
+  SecretUnavailableError,
   StorageError,
   LockError,
   HintChannelError,

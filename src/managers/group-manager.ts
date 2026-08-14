@@ -44,6 +44,7 @@ import {
   EpochGapError,
   ForkDetectedError,
   HistoryIntegrityError,
+  SecretUnavailableError,
   MalformedTransitionError,
   PolicyViolationError,
   StorageError,
@@ -540,7 +541,18 @@ export class GroupManager {
     const secrets = recovery.secrets;
 
     for (const wire of incoming) {
-      const secret = secrets.get(wire.epoch);
+      // The backward walk stops at the first epoch whose secret is
+      // already in storage, so epochs at or below that boundary are
+      // missing from `secrets` even though this device holds them.
+      // Usually that is harmless — holding a secret means the
+      // transition was verified and persisted when it arrived — but a
+      // device restored from backup holds secrets with no transitions
+      // behind them, and those still have to be verified. Without this
+      // fallback the loop reads a held epoch as loss of access and
+      // stops at the first transition, leaving `state` null.
+      const secret =
+        secrets.get(wire.epoch) ??
+        (await this.storage.getGroupSecret(groupId, wire.epoch));
       if (secret === undefined) {
         // No secret for this epoch means no envelope for this device:
         // our access ends here (spec §9.3). Everything verified so far
@@ -596,7 +608,19 @@ export class GroupManager {
     }
 
     if (state === null) {
-      throw new TransportError(`group ${groupId} has no transitions to verify`);
+      // Two different situations, and conflating them made the second
+      // one undiagnosable: the relay served nothing at all, versus it
+      // served history this device cannot open. Only the first is a
+      // transport-shaped problem.
+      if (incoming.length === 0) {
+        throw new TransportError(`group ${groupId} has no transitions to verify`);
+      }
+      throw new SecretUnavailableError(
+        `group ${groupId}: no group_secret is available for any of the ` +
+          `${String(incoming.length)} transition(s) served, so none could be ` +
+          `verified. This device holds no envelope at the head epoch — it is ` +
+          `not a member there (spec §9.3).`,
+      );
     }
     this.states.set(groupId, state);
     if (incoming.length > 0) {
