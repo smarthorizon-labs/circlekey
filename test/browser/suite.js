@@ -27,7 +27,13 @@ import {
   WebLocksProvider,
 } from "../../dist/adapters/locks.js";
 import { BroadcastChannelHints } from "../../dist/adapters/hints.js";
-import { GroupManager, KeyManager, RecordCrypto } from "../../dist/index.js";
+import {
+  BackupManager,
+  GroupManager,
+  KeyManager,
+  RecordCrypto,
+  SyncManager,
+} from "../../dist/index.js";
 import { MockTransport } from "../../dist/testing.js";
 
 // --- tiny assertion helpers -------------------------------------------------
@@ -65,6 +71,14 @@ const km = new KeyManager(crypto);
  * `createGroup` no longer takes one (spec §6.5).
  */
 const g = "browser-storage-fixture";
+
+/**
+ * Backup parameters for this page. Deliberately trivial: the KDF is
+ * not what these cases test, and the real spec §6.2 costs would make
+ * an interactive page feel hung. `backup.test.ts` covers both KDFs at
+ * their real parameters in Node.
+ */
+const FAST_BACKUP = { kdf: "pbkdf2-sha256", kdfIterations: 1 };
 
 let dbCounter = 0;
 const freshDbName = () => `circlekey-b4-${String(Date.now())}-${String(++dbCounter)}`;
@@ -648,6 +662,204 @@ export const tests = [
         tabB.close();
         storageA.close();
         storageB.close();
+      }
+    },
+  },
+
+  // =========================================================================
+  // 5b. Recovery against a real database.
+  //
+  // `restore()` is the one path that writes state into storage from
+  // somewhere other than the verified chain: the blob carries group
+  // secrets, never transitions. The Node suite covers the logic, but it
+  // covers it over `fake-indexeddb`, and the catch-up walk now reads a
+  // stored secret back mid-verification — a read whose interleaving with
+  // concurrent writers only a real database can settle.
+  // =========================================================================
+  {
+    name: "restore: a refreshed backup recovers the whole chain from real IndexedDB",
+    async run() {
+      const transport = new MockTransport();
+      const keys = await km.generateDeviceKeys();
+      const original = await IndexedDbStore.open({ name: freshDbName() });
+      const fresh = await IndexedDbStore.open({ name: freshDbName() });
+      try {
+        await original.putIdentity({
+          userId: "alice",
+          identityPrivateKey: keys.identity.privateKey,
+          backupEnrolled: false, // enroll() refuses if this is already true
+        });
+        const backup = new BackupManager(
+          crypto,
+          original,
+          new SyncManager(transport),
+          FAST_BACKUP,
+        );
+        const credential = await backup.enroll();
+        await backup.confirmEnrollment(credential);
+
+        const tab = new GroupManager({
+          crypto,
+          storage: original,
+          transport,
+          locks: new WebLocksProvider(),
+          deviceKeys: keys,
+          userId: "alice",
+        });
+        const group = (await tab.createGroup({ min_managers: 1 })).group_id;
+        for (const who of ["bob", "carol"]) {
+          const device = km.devicePublicKey(await km.generateDeviceKeys());
+          await tab.addMember(group, {
+            user_id: who,
+            device_pubkeys: [device],
+            is_manager: false,
+          });
+        }
+        assertEqual(tab.getState(group).epoch, 2, "three epochs before the refresh");
+        await backup.refresh(credential);
+        tab.close();
+
+        // A different database entirely: the replacement device.
+        const restoring = new BackupManager(
+          crypto,
+          fresh,
+          new SyncManager(transport),
+          FAST_BACKUP,
+        );
+        await restoring.restore("alice", credential);
+
+        // The premise this case exists for. Assert it rather than assume
+        // it: if `restore` ever starts persisting transitions too, the
+        // test would keep passing while covering nothing.
+        assertEqual(
+          [...(await fresh.getGroupSecrets(group)).keys()],
+          [0, 1, 2],
+          "the blob's secrets reached real IndexedDB",
+        );
+        assertEqual(
+          (await fresh.getTransitions(group)).length,
+          0,
+          "and no transitions came with them",
+        );
+
+        const identity = await fresh.getIdentity();
+        const restoredTab = new GroupManager({
+          crypto,
+          storage: fresh,
+          transport,
+          locks: new WebLocksProvider(),
+          deviceKeys: await km.deviceKeysFromIdentity(identity.identityPrivateKey),
+          userId: "alice",
+        });
+        try {
+          await restoredTab.start();
+          const state = await restoredTab.syncGroup(group);
+          assertEqual(state.epoch, 2, "the restored device reaches the head");
+          assertEqual(
+            (await fresh.getTransitions(group)).map((t) => t.epoch),
+            [0, 1, 2],
+            "and persisted the chain it verified on the way",
+          );
+        } finally {
+          restoredTab.close();
+        }
+      } finally {
+        original.close();
+        fresh.close();
+      }
+    },
+  },
+
+  {
+    name: "restore: two tabs sync a restored database concurrently",
+    async run() {
+      // The interleaving `fake-indexeddb` cannot settle: two real
+      // connections verifying the same chain at once, each reading back
+      // secrets the blob wrote while the other appends transitions. The
+      // append-only guard must absorb the loser without either tab
+      // ending up short of the head.
+      const transport = new MockTransport();
+      const keys = await km.generateDeviceKeys();
+      const seed = await IndexedDbStore.open({ name: freshDbName() });
+      const dbName = freshDbName();
+      try {
+        await seed.putIdentity({
+          userId: "alice",
+          identityPrivateKey: keys.identity.privateKey,
+          backupEnrolled: false,
+        });
+        const backup = new BackupManager(
+          crypto,
+          seed,
+          new SyncManager(transport),
+          FAST_BACKUP,
+        );
+        const credential = await backup.enroll();
+        await backup.confirmEnrollment(credential);
+
+        const tab = new GroupManager({
+          crypto,
+          storage: seed,
+          transport,
+          locks: new WebLocksProvider(),
+          deviceKeys: keys,
+          userId: "alice",
+        });
+        const group = (await tab.createGroup({ min_managers: 1 })).group_id;
+        const device = km.devicePublicKey(await km.generateDeviceKeys());
+        await tab.addMember(group, {
+          user_id: "bob",
+          device_pubkeys: [device],
+          is_manager: false,
+        });
+        await backup.refresh(credential);
+        tab.close();
+
+        const [storageA, storageB] = await openConnections(dbName, 2);
+        try {
+          await new BackupManager(
+            crypto,
+            storageA,
+            new SyncManager(transport),
+            FAST_BACKUP,
+          ).restore("alice", credential);
+
+          const restoredKeys = await km.deviceKeysFromIdentity(
+            (await storageA.getIdentity()).identityPrivateKey,
+          );
+          const makeTab = (storage) =>
+            new GroupManager({
+              crypto,
+              storage,
+              transport,
+              locks: new WebLocksProvider(),
+              deviceKeys: restoredKeys,
+              userId: "alice",
+            });
+          const tabA = makeTab(storageA);
+          const tabB = makeTab(storageB);
+          try {
+            const [a, b] = await Promise.all([
+              tabA.syncGroup(group),
+              tabB.syncGroup(group),
+            ]);
+            assertEqual(a.epoch, 1, "tab A reaches the head");
+            assertEqual(b.epoch, 1, "tab B reaches the head");
+            assertEqual(
+              (await storageA.getTransitions(group)).map((t) => t.epoch),
+              [0, 1],
+              "exactly one clean chain, no duplicate epochs",
+            );
+          } finally {
+            tabA.close();
+            tabB.close();
+          }
+        } finally {
+          storageA.close();
+          storageB.close();
+        }
+      } finally {
+        seed.close();
       }
     },
   },

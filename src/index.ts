@@ -20,7 +20,7 @@
  * same value. This follows semver on the *API* — a major bump means
  * the TypeScript surface changed, not that the protocol did.
  */
-export const CIRCLEKEY_VERSION = "1.0.0";
+export const CIRCLEKEY_VERSION = "1.1.0";
 
 export * from "./core/types";
 export {
@@ -30,6 +30,7 @@ export {
   EnvelopeError,
   HistoryIntegrityError,
   KeyUsageExceededError,
+  SecretUnavailableError,
   StorageError,
   LockError,
   HintChannelError,

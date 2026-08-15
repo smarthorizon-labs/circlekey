@@ -78,6 +78,22 @@ export class EnvelopeError extends CircleKeyError {}
 export class HistoryIntegrityError extends CircleKeyError {}
 
 /**
+ * Sync stopped because this device can obtain no `group_secret` for the
+ * epochs the relay served: no envelope opened at the head and none is
+ * held locally, so nothing can be decrypted and nothing verified.
+ *
+ * Normally this is removal (spec §9.3) observed from the inside — a
+ * removed member is sealed out of the transition that removes it, so
+ * loss of access is all it ever sees, and it cannot distinguish that
+ * from a relay withholding data. Either way it is a state of *this
+ * device's access*, not a network fault, which is why it is not a
+ * `TransportError`: a host that maps error types to user-facing text
+ * would otherwise report a connectivity problem for a group the user
+ * has simply been removed from.
+ */
+export class SecretUnavailableError extends CircleKeyError {}
+
+/**
  * The per-key encryption usage bound was hit (spec §6.1): encryption
  * under this epoch's keys is refused until the group rotates to a new
  * epoch. Never raised on decrypt.
