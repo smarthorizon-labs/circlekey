@@ -1,6 +1,6 @@
 {
   "name": "circlekey",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Reference TypeScript implementation of the GroupVault Protocol — end-to-end encrypted group data storage for small teams with a zero-knowledge backend.",
   "license": "MPL-2.0",
   "homepage": "https://circlekey.io",
